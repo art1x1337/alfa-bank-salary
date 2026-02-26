@@ -1,0 +1,363 @@
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Solushn Bank Edition</title>
+  <style>
+     body {
+  font-family: Arial, sans-serif;
+  max-width: 500px;
+  margin: 10px auto;
+  padding: 10px;
+  background: #f4f6f9;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 22px;
+  }
+
+  .card {
+     background: white;
+  padding: 14px;
+  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+
+  .product {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .product-name {
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .price {
+    color: gray;
+    font-size: 14px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  button {
+    font-size: 20px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .plus, .minus {
+    width: 70px;
+    height: 60px;
+  }
+
+  .plus {
+    background: #4CAF50;
+    color: white;
+  }
+
+  .minus {
+    background: #f44336;
+    color: white;
+  }
+
+  .count {
+    font-size: 22px;
+    font-weight: bold;
+  }
+
+  .total-box {
+  background: linear-gradient(135deg, #111, #222);
+  color: white;
+  padding: 22px;
+  text-align: center;
+  font-size: 18px;
+  border-radius: 16px;
+  margin-top: 25px;
+  }
+
+  .total-box input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+}
+
+.total-box button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+}
+
+  #auth input {
+    display: block;
+    margin: 8px 0;
+    padding: 10px;
+    width: 100%;
+  }
+
+  #auth button {
+     width: 100%;
+    padding: 12px;
+  }
+
+  #products {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+button {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.plus, .minus {
+  width: 100%;
+  height: 55px;
+  }
+
+button:active {
+  transform: scale(0.92);
+  opacity: 0.8;
+}
+
+.plus:hover {
+  background: #43a047;
+}
+
+.minus:hover {
+  background: #e53935;
+}
+    </style>
+</head>
+<body>
+
+<h1>Solushn Bank Edition</h1>
+
+<div id="auth">
+  <h3>Регистрация</h3>
+  <input id="regEmail" placeholder="Email">
+  <input id="regPass" type="password" placeholder="Пароль">
+  <button onclick="register()">Зарегистрироваться</button>
+
+  <h3>Логин</h3>
+  <input id="logEmail" placeholder="Email">
+  <input id="logPass" type="password" placeholder="Пароль">
+  <button onclick="login()">Войти</button>
+</div>
+
+<div id="app" style="display:none;">
+  <div id="products"></div>
+
+  <div class="total-box">
+     💰 Сегодня: <span id="todayIncome">0</span> ₽
+  <br><br>
+  📆 Месяц: <span id="monthIncome">0</span> ₽
+  <br><br>
+  🎯 Цель:
+  <input id="goalInput" type="number" placeholder="Введите цель">
+  <button onclick="setGoal()">OK</button>
+  <br><br>
+  <div style="margin-top:15px;">
+  <div style="background:#333; border-radius:10px; overflow:hidden; height:18px;">
+    <div id="progressBar"
+         style="height:100%; width:0%; background:#4CAF50; transition:0.3s;">
+    </div>
+  </div>
+  <div style="margin-top:6px;">
+    <span id="goalPercent">0</span>%
+  </div>
+</div>
+</div>
+
+  <br>
+  <button onclick="logout()">Выйти</button>
+</div>
+
+<script>
+
+    async function setGoal() {
+  const token = localStorage.getItem("token");
+  const goal = document.getElementById("goalInput").value;
+
+  await fetch("/set-goal", {
+    method: "POST",
+    headers: {
+      "Content-Type":"application/json",
+      "Authorization":"Bearer " + token
+    },
+    body: JSON.stringify({goal})
+  });
+
+  loadStats();
+}
+
+function showApp() {
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  location.reload();
+}
+
+if (localStorage.getItem("token")) {
+  showApp();
+  loadProducts();
+  loadStats();
+}
+
+// ================= AUTH =================
+
+async function register() {
+  const email = regEmail.value;
+  const password = regPass.value;
+
+  await fetch("/register", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
+
+  alert("Пользователь создан");
+}
+
+async function login() {
+  const email = logEmail.value;
+  const password = logPass.value;
+
+  const res = await fetch("/login", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
+
+  const data = await res.json();
+
+  if (data.token) {
+    localStorage.setItem("token", data.token);
+    showApp();
+    loadProducts();
+    loadStats();
+  } else {
+    alert("Ошибка входа");
+  }
+}
+
+// ================= PRODUCTS =================
+
+async function loadProducts() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch("/products", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  const products = await res.json();
+
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+
+  products.forEach(product => {
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+      <div class="product">
+        <div>
+          <div class="product-name">${product.name}</div>
+          <div class="price">${product.price} ₽</div>
+        </div>
+
+        <div class="controls">
+          <button class="minus" onclick="removeSale(${product.id})">-</button>
+          <span id="count-${product.id}" class="count">0</span>
+          <button class="plus" onclick="addSale(${product.id})">+</button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  loadStats();
+}
+
+// ================= SALES =================
+
+async function addSale(productId) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch("/sales", {
+    method: "POST",
+    headers: {
+      "Content-Type":"application/json",
+      "Authorization":"Bearer " + token
+    },
+    body: JSON.stringify({product_id: productId})
+  });
+
+  console.log(res.status);
+
+  loadStats();
+}
+
+async function removeSale(productId) {
+  const token = localStorage.getItem("token");
+
+  await fetch("/sales/" + productId, {
+    method: "DELETE",
+    headers: {
+      "Authorization":"Bearer " + token
+    }
+  });
+
+  loadStats();
+}
+
+// ================= STATS =================
+
+async function loadStats() {
+   const token = localStorage.getItem("token");
+
+  const todayRes = await fetch("/stats?period=today", {
+    headers: { "Authorization":"Bearer " + token }
+  });
+  const todayData = await todayRes.json();
+
+  const monthRes = await fetch("/stats?period=month", {
+    headers: { "Authorization":"Bearer " + token }
+  });
+  const monthData = await monthRes.json();
+
+  todayData.products.forEach(product => {
+    const el = document.getElementById("count-" + product.id);
+    if (el) {
+      el.textContent = product.total_quantity || 0;
+    }
+  });
+
+  document.getElementById("todayIncome").textContent = todayData.total_income;
+  document.getElementById("monthIncome").textContent = monthData.total_income;
+  document.getElementById("goalPercent").textContent = monthData.percent || 0;
+  document.getElementById("progressBar").style.width =
+  (monthData.percent || 0) + "%";
+}
+
+
+</script>
+
+</body>
+</html>
+
