@@ -295,18 +295,26 @@ async function copyReport() {
 
   const textarea = document.createElement("textarea");
   textarea.value = report;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
+
+  // ВАЖНО для iPhone
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
 
   document.body.appendChild(textarea);
+
   textarea.focus();
   textarea.select();
+  textarea.setSelectionRange(0, 99999); // iOS fix
 
   try {
-    document.execCommand("copy");
-    showToast();
+    const successful = document.execCommand("copy");
+    if (successful) {
+      showToast();
+    } else {
+      alert("Не удалось скопировать 😔");
+    }
   } catch (err) {
-    alert("Не удалось скопировать 😔");
+    alert("Ошибка копирования 😔");
   }
 
   document.body.removeChild(textarea);
