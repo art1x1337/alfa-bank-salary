@@ -293,25 +293,23 @@ async function copyReport() {
       report += `${p.name}: ${p.total_quantity}\n`;
     });
 
-  navigator.clipboard.writeText(report);
-  alert("Отчёт скопирован ✅");
-}
+  const textarea = document.createElement("textarea");
+  textarea.value = report;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
 
-    async function setGoal() {
-  const token = localStorage.getItem("token");
-  const goal = document.getElementById("goalInput").value;
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
 
-  await fetch("/set-goal", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token
-    },
-    body: JSON.stringify({ goal: goal })
-  });
+  try {
+    document.execCommand("copy");
+    showToast();
+  } catch (err) {
+    alert("Не удалось скопировать 😔");
+  }
 
-  showToast();
-  loadStats();
+  document.body.removeChild(textarea);
 }
 
 function showApp() {
