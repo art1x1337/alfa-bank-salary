@@ -1,28 +1,24 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const sqlite3 = require("sqlite3").verbose();
 
-const dbPath = path.join(__dirname, 'database.db');
-console.log("DB file path:", dbPath);
-
-const db = new sqlite3.Database(dbPath);
+const db = new sqlite3.Database("./database.db");
 
 db.serialize(() => {
-  console.log("Создаю таблицы Bank Edition...");
 
   db.run(`
-     CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE,
-    password TEXT,
-    goal INTEGER DEFAULT 0
-  )
-`);
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE,
+      password TEXT,
+      goal INTEGER DEFAULT 0
+    )
+  `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE,
-      price INTEGER
+      name TEXT,
+      price INTEGER,
+      category TEXT
     )
   `);
 
@@ -35,24 +31,55 @@ db.serialize(() => {
     )
   `);
 
-  const defaultProducts = [
-    { name: "ДК/ЗПК/RE", price: 310 },
-    { name: "КК", price: 570 },
-    { name: "Терминал", price: 510 },
-    { name: "Детская карта", price: 430 },
-    { name: "Сим", price: 270 },
-    { name: "РКО", price: 830 }
-  ];
+  db.get("SELECT COUNT(*) as count FROM products", (err, row) => {
 
-  defaultProducts.forEach(product => {
-    db.run(
-      "INSERT OR IGNORE INTO products (name, price) VALUES (?, ?)",
-      [product.name, product.price]
-    );
-  });
+    if (err) {
+      console.error("Ошибка проверки products:", err);
+      return;
+    }
 
-  db.all("SELECT name FROM sqlite_master WHERE type='table'", [], (err, rows) => {
-    console.log("Текущие таблицы:", rows);
+    if (row && row.count === 0) {
+
+  const stmt = db.prepare(
+    "INSERT INTO products (name, price, category) VALUES (?, ?, ?)"
+  );
+
+  stmt.run("ДК/ЗПК/РЕ", 310, "done");
+  stmt.run("КК", 570, "done");
+  stmt.run("Терминал", 510, "done");
+  stmt.run("Крос дет нов", 430, "done");
+  stmt.run("РЕ", 270, "done");
+  stmt.run("РКО", 830, "done");
+  stmt.run("СелфиДК", 380, "done");
+  stmt.run("СелфиКК", 570, "done");
+  stmt.run("Страховка", 100, "done");
+  stmt.run("КроссДК", 270, "done");
+  stmt.run("КроссКК", 570, "done");
+  stmt.run("АИ", 270, "done");
+  stmt.run("ЦП", 30, "done");
+  stmt.run("УП", 230, "done");
+  stmt.run("Прил (заявка)", 310, "done");
+
+  stmt.run("PPI", 0, "sales");
+  stmt.run("CC", 0, "sales");
+  stmt.run("Кросс ДК", 0, "sales");
+  stmt.run("Комбо", 0, "sales");
+  stmt.run("Селфи ДК", 0, "sales");
+  stmt.run("ЦП Продажа", 0, "sales");
+  stmt.run("Смарт", 0, "sales");
+  stmt.run("Кэшбек", 0, "sales");
+  stmt.run("ЖКУ", 0, "sales");
+  stmt.run("Пенсия", 0, "sales");
+
+  stmt.run("БС", 0, "contest");
+  stmt.run("СИМКИ", 0, "contest");
+  stmt.run("КОРОБКА", 0, "contest");
+  stmt.run("ДЕТСКАЯ", 0, "contest");
+
+  stmt.finalize();
+
+  console.log("Все продукты добавлены");
+}
   });
 
 });

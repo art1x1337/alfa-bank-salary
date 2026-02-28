@@ -4,144 +4,223 @@
   <meta charset="UTF-8">
   <title>Solushn Bank Edition</title>
   <style>
-     body {
-  font-family: Arial, sans-serif;
-  max-width: 500px;
-  margin: 10px auto;
-  padding: 10px;
-  background: #f4f6f9;
-  }
 
-  h1 {
-    text-align: center;
-    font-size: 22px;
-  }
-
-  .card {
-     background: white;
-  padding: 14px;
-  border-radius: 14px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+     * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-  .product {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f4f6f9;
+}
 
-  .product-name {
-    font-size: 18px;
-    font-weight: bold;
-  }
-
-  .price {
-    color: gray;
-    font-size: 14px;
-  }
-
-  .controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  button {
-    font-size: 20px;
-    border-radius: 12px;
-    border: none;
-    cursor: pointer;
-  }
-
-  .plus, .minus {
-    width: 70px;
-    height: 60px;
-  }
-
-  .plus {
-    background: #4CAF50;
-    color: white;
-  }
-
-  .minus {
-    background: #f44336;
-    color: white;
-  }
-
-  .count {
-    font-size: 22px;
-    font-weight: bold;
-  }
-
-  .total-box {
-  background: linear-gradient(135deg, #111, #222);
-  color: white;
-  padding: 22px;
+.app-header {
+  background: white;
+  padding: 18px;
   text-align: center;
-  font-size: 18px;
-  border-radius: 16px;
-  margin-top: 25px;
-  }
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
-  .total-box input {
-  width: 100%;
+.income {
+  margin-bottom: 10px;
+}
+
+.amount {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+.goal-block {
+  display: flex;
+  gap: 10px;
   margin-top: 10px;
-  padding: 10px;
+}
+
+.goal-block input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ffffff;
+  border-radius: 8px;
+}
+
+.goal-block button {
+  padding: 8px 14px;
+  background: #2563eb;
+  color: rgb(255, 251, 251);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.progress-wrapper {
+  margin-top: 15px;
+  background: #ffffff;
+  border-radius: 10px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  transition: width 0.3s ease;
+}
+
+.percent {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.products {
+  padding: 15px;
+}
+
+.products h2 {
+  margin: 20px 0 10px;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.card {
+  background: rgb(230, 223, 223);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease;
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.product {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.product-name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.price {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.controls button {
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
 }
 
-.total-box button {
-  margin-top: 10px;
-  width: 100%;
-  padding: 10px;
-  font-size: 16px;
+.controls button:active {
+  transform: scale(0.95);
 }
 
-  #auth input {
-    display: block;
-    margin: 8px 0;
-    padding: 10px;
-    width: 100%;
-  }
-
-  #auth button {
-     width: 100%;
-    padding: 12px;
-  }
-
-  #products {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+.controls button.minus {
+  background: #94a3b8;
 }
 
-button {
-  transition: transform 0.1s ease, opacity 0.1s ease;
+.count {
+  min-width: 20px;
+  text-align: center;
+  font-weight: 600;
 }
 
-.plus, .minus {
-  width: 100%;
-  height: 55px;
-  }
-
-button:active {
-  transform: scale(0.92);
-  opacity: 0.8;
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2563eb;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: 0.3s;
+  font-size: 14px;
 }
 
-.plus:hover {
-  background: #43a047;
+.category-title {
+  margin: 20px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.minus:hover {
-  background: #e53935;
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 15px;
 }
+
+.progress-container {
+  margin-top: 15px;
+  background: #e2e8f0;
+  border-radius: 10px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.bottom-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bottom-actions button {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  background: #2563eb;
+  color: white;
+}
+
+.bottom-actions .logout {
+  background: #ef4444;
+}
+
     </style>
 </head>
 <body>
 
-<h1>Solushn Bank Edition</h1>
+<div class="app-header">
+  <h1>Альфа Солюшн — KPI Tracker</h1>
+</div>
+
+<div class="container">
 
 <div id="auth">
   <h3>Регистрация</h3>
@@ -167,23 +246,56 @@ button:active {
   <input id="goalInput" type="number" placeholder="Введите цель">
   <button onclick="setGoal()">OK</button>
   <br><br>
-  <div style="margin-top:15px;">
-  <div style="background:#333; border-radius:10px; overflow:hidden; height:18px;">
-    <div id="progressBar"
-         style="height:100%; width:0%; background:#4CAF50; transition:0.3s;">
-    </div>
-  </div>
-  <div style="margin-top:6px;">
-    <span id="goalPercent">0</span>%
-  </div>
+  <div class="progress-container">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+<div class="percent">
+  <span id="goalPercent">0</span>%
 </div>
 </div>
-
-  <br>
-  <button onclick="logout()">Выйти</button>
+<div class="bottom-actions">
+  <button onclick="copyReport()">Скопировать отчёт</button>
+  <button class="logout" onclick="logout()">Выйти</button>
 </div>
 
 <script>
+
+async function copyReport() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch("/stats?period=today", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  const data = await res.json();
+
+  let report = "Выполнено:\n";
+
+  data.products
+    .filter(p => p.category === "done" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  report += "\nПродажи:\n";
+
+  data.products
+    .filter(p => p.category === "sales" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  report += "\nКонкурс:\n";
+
+  data.products
+    .filter(p => p.category === "contest" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  navigator.clipboard.writeText(report);
+  alert("Отчёт скопирован ✅");
+}
 
     async function setGoal() {
   const token = localStorage.getItem("token");
@@ -192,12 +304,13 @@ button:active {
   await fetch("/set-goal", {
     method: "POST",
     headers: {
-      "Content-Type":"application/json",
-      "Authorization":"Bearer " + token
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
     },
-    body: JSON.stringify({goal})
+    body: JSON.stringify({ goal: goal })
   });
 
+  showToast();
   loadStats();
 }
 
@@ -216,8 +329,6 @@ if (localStorage.getItem("token")) {
   loadProducts();
   loadStats();
 }
-
-// ================= AUTH =================
 
 async function register() {
   const email = regEmail.value;
@@ -254,8 +365,6 @@ async function login() {
   }
 }
 
-// ================= PRODUCTS =================
-
 async function loadProducts() {
   const token = localStorage.getItem("token");
 
@@ -268,33 +377,45 @@ async function loadProducts() {
   const container = document.getElementById("products");
   container.innerHTML = "";
 
-  products.forEach(product => {
+  ["done", "sales", "contest"].forEach(cat => {
 
-    const card = document.createElement("div");
-    card.className = "card";
+    const section = document.createElement("h2");
+    section.textContent =
+      cat === "done" ? "Выполнено" :
+      cat === "sales" ? "Продажи" :
+      "Конкурс";
 
-    card.innerHTML = `
-      <div class="product">
-        <div>
-          <div class="product-name">${product.name}</div>
-          <div class="price">${product.price} ₽</div>
-        </div>
+    container.appendChild(section);
 
-        <div class="controls">
-          <button class="minus" onclick="removeSale(${product.id})">-</button>
-          <span id="count-${product.id}" class="count">0</span>
-          <button class="plus" onclick="addSale(${product.id})">+</button>
-        </div>
-      </div>
-    `;
+    products
+      .filter(p => p.category === cat)
+      .forEach(product => {
 
-    container.appendChild(card);
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div class="product">
+            <div>
+              <div class="product-name">${product.name}</div>
+              <div class="price">${product.price} ₽</div>
+            </div>
+
+            <div class="controls">
+              <button class="minus" onclick="removeSale(${product.id})">-</button>
+              <span id="count-${product.id}" class="count">0</span>
+              <button class="plus" onclick="addSale(${product.id})">+</button>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
   });
 
   loadStats();
 }
-
-// ================= SALES =================
 
 async function addSale(productId) {
   const token = localStorage.getItem("token");
@@ -326,8 +447,6 @@ async function removeSale(productId) {
   loadStats();
 }
 
-// ================= STATS =================
-
 async function loadStats() {
    const token = localStorage.getItem("token");
 
@@ -342,21 +461,48 @@ async function loadStats() {
   const monthData = await monthRes.json();
 
   todayData.products.forEach(product => {
-    const el = document.getElementById("count-" + product.id);
-    if (el) {
-      el.textContent = product.total_quantity || 0;
-    }
-  });
+  const count = product.total_quantity || 0;
+
+  const el = document.getElementById("count-" + product.id);
+  if (el) el.textContent = count;
+
+  const minusBtn = document.querySelector(
+    'button[onclick="removeSale(' + product.id + ')"]'
+  );
+
+  if (minusBtn) {
+    minusBtn.disabled = count === 0;
+    minusBtn.style.opacity = count === 0 ? "0.4" : "1";
+  }
+});
 
   document.getElementById("todayIncome").textContent = todayData.total_income;
   document.getElementById("monthIncome").textContent = monthData.total_income;
-  document.getElementById("goalPercent").textContent = monthData.percent || 0;
-  document.getElementById("progressBar").style.width =
-  (monthData.percent || 0) + "%";
+
+  document.getElementById("goalInput").value = monthData.goal || "";
+
+  const goalInput = document.getElementById("goalInput").value;
+  const goal = Number(goalInput) || 0;
+  const monthIncome = Number(monthData.total_income) || 0;
+
+  const percent = goal > 0 ? (monthIncome / goal) * 100 : 0;
+
+  document.getElementById("goalPercent").textContent = Math.floor(percent);
+  document.getElementById("progressBar").style.width = percent + "%";
 }
 
+function showToast() {
+  const toast = document.getElementById("toast");
+  toast.style.opacity = "1";
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+  }, 2000);
+}
 
 </script>
+
+<div id="toast" class="toast">Цель сохранена</div>
 
 </body>
 </html>
