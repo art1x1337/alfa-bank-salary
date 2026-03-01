@@ -293,31 +293,7 @@ async function copyReport() {
       report += `${p.name}: ${p.total_quantity}\n`;
     });
 
-  const textarea = document.createElement("textarea");
-  textarea.value = report;
-
-  // ВАЖНО для iPhone
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-
-  document.body.appendChild(textarea);
-
-  textarea.focus();
-  textarea.select();
-  textarea.setSelectionRange(0, 99999); // iOS fix
-
-  try {
-    const successful = document.execCommand("copy");
-    if (successful) {
-      showToast();
-    } else {
-      alert("Не удалось скопировать 😔");
-    }
-  } catch (err) {
-    alert("Ошибка копирования 😔");
-  }
-
-  document.body.removeChild(textarea);
+  prompt("Скопируйте отчёт вручную:", report);
 }
 
 function showApp() {
@@ -497,8 +473,9 @@ async function loadStats() {
   document.getElementById("progressBar").style.width = percent + "%";
 }
 
-function showToast() {
+function showToast(message) {
   const toast = document.getElementById("toast");
+  toast.textContent = message;
   toast.style.opacity = "1";
 
   setTimeout(() => {
