@@ -260,53 +260,39 @@ body {
 
 <script>
 
-async function copyReport() {
-  const token = localStorage.getItem("token");
+let cachedReport = "";
 
-  const res = await fetch("/stats?period=today", {
-    headers: { "Authorization": "Bearer " + token }
-  });
-
-  const data = await res.json();
-
-  let report = "Выполнено:\n";
-
-  data.products
-    .filter(p => p.category === "done" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
-    });
-
-  report += "\nПродажи:\n";
-
-  data.products
-    .filter(p => p.category === "sales" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
-    });
-
-  report += "\nКонкурс:\n";
-
-  data.products
-    .filter(p => p.category === "contest" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
-    });
-
-  const textarea = document.createElement("textarea");
-  textarea.value = report;
-  document.body.appendChild(textarea);
-  textarea.select();
-  textarea.setSelectionRange(0, 99999);
-
-  try {
-    document.execCommand("copy");
-    showToast("Отчёт скопирован");
-  } catch (err) {
-    showToast("Скопируйте вручную");
+function copyReport() {
+  if (!cachedReport) {
+    showToast("Отчёт ещё загружается");
+    return;
   }
 
+  navigator.clipboard.writeText(cachedReport)
+    .then(() => {
+      showToast("Отчёт скопирован");
+    })
+    .catch(() => {
+      fallbackCopy(cachedReport);
+    });
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  document.execCommand("copy");
+
   document.body.removeChild(textarea);
+
+  showToast("Отчёт скопирован");
 }
 
 function showApp() {
@@ -486,6 +472,34 @@ async function loadStats() {
     minusBtn.disabled = count === 0;
     minusBtn.style.opacity = count === 0 ? "0.4" : "1";
   }
+
+  // === ГЕНЕРАЦИЯ ОТЧЁТА ДЛЯ КОПИРОВАНИЯ ===
+let report = "Выполнено:\n";
+
+todayData.products
+  .filter(p => p.category === "done" && p.total_quantity > 0)
+  .forEach(p => {
+    report += `${p.name}: ${p.total_quantity}\n`;
+  });
+
+report += "\nПродажи:\n";
+
+todayData.products
+  .filter(p => p.category === "sales" && p.total_quantity > 0)
+  .forEach(p => {
+    report += `${p.name}: ${p.total_quantity}\n`;
+  });
+
+report += "\nКонкурс:\n";
+
+todayData.products
+  .filter(p => p.category === "contest" && p.total_quantity > 0)
+  .forEach(p => {
+    report += `${p.name}: ${p.total_quantity}\n`;
+  });
+
+cachedReport = report;
+
 });
 
   document.getElementById("todayIncome").textContent = todayData.total_income;
