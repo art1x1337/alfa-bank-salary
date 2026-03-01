@@ -254,13 +254,13 @@ body {
 </div>
 </div>
 <div class="bottom-actions">
-  <button onclick="copyReport()">Скопировать отчёт</button>
+  <button onclick="generateReport()">Показать отчёт</button>
   <button class="logout" onclick="logout()">Выйти</button>
 </div>
 
 <script>
 
-async function copyReport() {
+async function generateReport() {
   const token = localStorage.getItem("token");
 
   const res = await fetch("/stats?period=today", {
@@ -293,7 +293,8 @@ async function copyReport() {
       report += `${p.name}: ${p.total_quantity}\n`;
     });
 
-  prompt("Скопируйте отчёт вручную:", report);
+  document.getElementById("reportText").value = report;
+  document.getElementById("reportBlock").style.display = "block";
 }
 
 function showApp() {
@@ -503,6 +504,22 @@ function showToast(message) {
 </script>
 
 <div id="toast" class="toast">Цель сохранена</div>
+<div id="reportBlock" style="display:none; margin-top:20px;">
+  <h3 style="margin-bottom:10px;">Отчёт за сегодня</h3>
+  <textarea 
+    id="reportText"
+    readonly
+    style="
+      width:100%;
+      height:150px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #e2e8f0;
+      font-size:14px;
+      resize:none;
+    ">
+  </textarea>
+</div>
 
 </body>
 </html>
