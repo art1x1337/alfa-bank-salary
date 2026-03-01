@@ -399,6 +399,23 @@ async function loadProducts() {
   loadStats();
 }
 
+async function setGoal() {
+  const token = localStorage.getItem("token");
+  const goal = document.getElementById("goalInput").value;
+
+  await fetch("/set-goal", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ goal: goal })
+  });
+
+  showToast("Цель сохранена");
+  loadStats();
+}
+
 async function addSale(productId) {
   const token = localStorage.getItem("token");
 
