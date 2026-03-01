@@ -260,7 +260,7 @@ body {
 
 <script>
 
-async function generateReport() {
+async function copyReport() {
   const token = localStorage.getItem("token");
 
   const res = await fetch("/stats?period=today", {
@@ -293,8 +293,42 @@ async function generateReport() {
       report += `${p.name}: ${p.total_quantity}\n`;
     });
 
-  document.getElementById("reportText").value = report;
-  document.getElementById("reportBlock").style.display = "block";
+  // Попытка через современный API
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(report);
+      showToast("Отчёт скопирован");
+      return;
+    } catch (err) {
+      console.log("Clipboard API failed, fallback...");
+    }
+  }
+
+  // Fallback для iOS
+  const textarea = document.createElement("textarea");
+  textarea.value = report;
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.opacity = "0";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  try {
+    const success = document.execCommand("copy");
+    if (success) {
+      showToast("Отчёт скопирован");
+    } else {
+      showToast("Не удалось скопировать");
+    }
+  } catch (err) {
+    showToast("Ошибка копирования");
+  }
+
+  document.body.removeChild(textarea);
 }
 
 function showApp() {
@@ -479,11 +513,10 @@ async function loadStats() {
   document.getElementById("todayIncome").textContent = todayData.total_income;
   document.getElementById("monthIncome").textContent = monthData.total_income;
 
-  document.getElementById("goalInput").value = monthData.goal || "";
-
-  const goalInput = document.getElementById("goalInput").value;
-  const goal = Number(goalInput) || 0;
+  const goal = Number(monthData.goal) || 0;
   const monthIncome = Number(monthData.total_income) || 0;
+
+  document.getElementById("goalInput").value = goal || "";
 
   const percent = goal > 0 ? (monthIncome / goal) * 100 : 0;
 
