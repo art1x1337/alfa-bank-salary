@@ -254,7 +254,7 @@ body {
 </div>
 </div>
 <div class="bottom-actions">
-  <button onclick="generateReport()">Показать отчёт</button>
+  <button onclick="copyReport()">Скопировать отчёт</button>
   <button class="logout" onclick="logout()">Выйти</button>
 </div>
 
@@ -293,39 +293,17 @@ async function copyReport() {
       report += `${p.name}: ${p.total_quantity}\n`;
     });
 
-  // Попытка через современный API
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(report);
-      showToast("Отчёт скопирован");
-      return;
-    } catch (err) {
-      console.log("Clipboard API failed, fallback...");
-    }
-  }
-
-  // Fallback для iOS
   const textarea = document.createElement("textarea");
   textarea.value = report;
-  textarea.style.position = "fixed";
-  textarea.style.top = "0";
-  textarea.style.left = "0";
-  textarea.style.opacity = "0";
-
   document.body.appendChild(textarea);
-  textarea.focus();
   textarea.select();
-  textarea.setSelectionRange(0, textarea.value.length);
+  textarea.setSelectionRange(0, 99999);
 
   try {
-    const success = document.execCommand("copy");
-    if (success) {
-      showToast("Отчёт скопирован");
-    } else {
-      showToast("Не удалось скопировать");
-    }
+    document.execCommand("copy");
+    showToast("Отчёт скопирован");
   } catch (err) {
-    showToast("Ошибка копирования");
+    showToast("Скопируйте вручную");
   }
 
   document.body.removeChild(textarea);
@@ -513,14 +491,11 @@ async function loadStats() {
   document.getElementById("todayIncome").textContent = todayData.total_income;
   document.getElementById("monthIncome").textContent = monthData.total_income;
 
-  const goal = Number(monthData.goal) || 0;
-  const monthIncome = Number(monthData.total_income) || 0;
+  document.getElementById("goalInput").value = monthData.goal || "";
 
-  document.getElementById("goalInput").value = goal || "";
+  const percent = monthData.percent || 0;
 
-  const percent = goal > 0 ? (monthIncome / goal) * 100 : 0;
-
-  document.getElementById("goalPercent").textContent = Math.floor(percent);
+  document.getElementById("goalPercent").textContent = percent;
   document.getElementById("progressBar").style.width = percent + "%";
 }
 
