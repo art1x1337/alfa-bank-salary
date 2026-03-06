@@ -1,0 +1,20 @@
+{
+  "name": "Альфа Солюшн — KPI Tracker",
+  "short_name": "KPI Tracker",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icons/icon-192.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/icons/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

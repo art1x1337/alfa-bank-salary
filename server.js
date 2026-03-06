@@ -73,8 +73,13 @@ app.get('/products', authenticateToken, (req, res) => {
 
 
 app.post("/set-goal", authenticateToken, (req, res) => {
+
   const { goal } = req.body;
   const user_id = req.user.id;
+
+  if (!goal || goal <= 0) {
+    return res.status(400).json({ error: "Invalid goal" });
+  }
 
   db.run(
     "UPDATE users SET goal = ? WHERE id = ?",
@@ -166,6 +171,10 @@ app.get("/stats", authenticateToken, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
 
     const totalIncome = rows.reduce((sum, row) => sum + (row.total_income || 0), 0);
+    const totalQuantity = rows.reduce(
+  (sum, row) => sum + (row.total_quantity || 0),
+  0
+);
 
     db.get(
       "SELECT goal FROM users WHERE id = ?",
@@ -175,11 +184,19 @@ app.get("/stats", authenticateToken, (req, res) => {
         const goal = user?.goal || 0;
         const percent = goal > 0 ? Math.floor((totalIncome / goal) * 100) : 0;
 
+        const productsWithPercent = rows.map(p => ({
+        ...p,
+        percent: totalQuantity > 0
+        ? Math.round((p.total_quantity / totalQuantity) * 100)
+        : 0
+      }));
+
         res.json({
-          products: rows,
-          total_income: totalIncome,
-          goal,
-          percent
+        products: productsWithPercent,
+        total_income: totalIncome,
+        total_quantity: totalQuantity,
+        goal,
+        percent
         });
       }
     );

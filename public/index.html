@@ -3,6 +3,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
   <title>Solushn Bank Edition</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="/icons/icon-192.jpg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
 
      * {
@@ -242,6 +247,17 @@ body {
   <br><br>
   📆 Месяц: <span id="monthIncome">0</span> ₽
   <br><br>
+📦 Продуктов за месяц: <span id="monthQuantity">0</span>
+<div id="monthStats" style="margin-top:15px;"></div>
+  <br><br>
+  <div style="margin-top:20px;">
+  <h3>📊 Продукты за месяц</h3>
+  <div id="monthProducts"></div>
+</div>
+<div style="margin-top:20px;">
+  <h3>🏆 Топ продукт месяца</h3>
+  <div id="topProduct"></div>
+</div>
   🎯 Цель:
   <input id="goalInput" type="number" placeholder="Введите цель">
   <button onclick="setGoal()">OK</button>
@@ -400,7 +416,15 @@ async function loadProducts() {
 
 async function setGoal() {
   const token = localStorage.getItem("token");
-  const goal = document.getElementById("goalInput").value;
+
+  const goalValue = document.getElementById("goalInput").value;
+
+  const goal = Number(goalValue);
+
+  if (!goal || goal <= 0) {
+    showToast("Введите корректную цель");
+    return;
+  }
 
   await fetch("/set-goal", {
     method: "POST",
@@ -408,7 +432,7 @@ async function setGoal() {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + token
     },
-    body: JSON.stringify({ goal: goal })
+    body: JSON.stringify({ goal })
   });
 
   showToast("Цель сохранена");
@@ -416,9 +440,11 @@ async function setGoal() {
 }
 
 async function addSale(productId) {
-  const token = localStorage.getItem("token");
+  const el = document.getElementById("count-" + productId);
+  if (el) el.textContent = Number(el.textContent || 0) + 1;
 
-  const res = await fetch("/sales", {
+  const token = localStorage.getItem("token");
+  await fetch("/sales", {
     method: "POST",
     headers: {
       "Content-Type":"application/json",
@@ -427,9 +453,7 @@ async function addSale(productId) {
     body: JSON.stringify({product_id: productId})
   });
 
-  console.log(res.status);
-
-  loadStats();
+  loadStats(); 
 }
 
 async function removeSale(productId) {
@@ -446,62 +470,134 @@ async function removeSale(productId) {
 }
 
 async function loadStats() {
-   const token = localStorage.getItem("token");
+
+  const token = localStorage.getItem("token");
 
   const todayRes = await fetch("/stats?period=today", {
     headers: { "Authorization":"Bearer " + token }
   });
+
   const todayData = await todayRes.json();
 
   const monthRes = await fetch("/stats?period=month", {
     headers: { "Authorization":"Bearer " + token }
   });
+
   const monthData = await monthRes.json();
 
-  todayData.products.forEach(product => {
-  const count = product.total_quantity || 0;
+  document.getElementById("monthQuantity").textContent =
+    monthData.total_quantity;
 
-  const el = document.getElementById("count-" + product.id);
-  if (el) el.textContent = count;
+  const container = document.getElementById("monthProducts");
+container.innerHTML = "";
 
-  const minusBtn = document.querySelector(
-    'button[onclick="removeSale(' + product.id + ')"]'
-  );
+monthData.products
+  .filter(p => p.total_quantity > 0)
+  .forEach(product => {
 
-  if (minusBtn) {
-    minusBtn.disabled = count === 0;
-    minusBtn.style.opacity = count === 0 ? "0.4" : "1";
-  }
+    const row = document.createElement("div");
 
-  // === ГЕНЕРАЦИЯ ОТЧЁТА ДЛЯ КОПИРОВАНИЯ ===
-let report = "Выполнено:\n";
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.padding = "6px 0";
+    row.style.borderBottom = "1px solid #eee";
 
-todayData.products
-  .filter(p => p.category === "done" && p.total_quantity > 0)
-  .forEach(p => {
-    report += `${p.name}: ${p.total_quantity}\n`;
-  });
+    row.innerHTML = `
+  <div style="width:100%;">
+    <div style="display:flex;justify-content:space-between;">
+      <span>${product.name}</span>
+      <span>${product.total_quantity} (${product.percent}%)</span>
+    </div>
 
-report += "\nПродажи:\n";
+    <div style="
+      height:6px;
+      background:#eee;
+      border-radius:4px;
+      margin-top:4px;
+    ">
+      <div style="
+        width:${product.percent}%;
+        height:6px;
+        background:#2563eb;
+        border-radius:4px;
+      "></div>
+    </div>
+  </div>
+`;
 
-todayData.products
-  .filter(p => p.category === "sales" && p.total_quantity > 0)
-  .forEach(p => {
-    report += `${p.name}: ${p.total_quantity}\n`;
-  });
+const topProduct = monthData.products
+  .sort((a,b)=>b.total_quantity-a.total_quantity)[0];
 
-report += "\nКонкурс:\n";
+if (topProduct) {
+  document.getElementById("topProduct").textContent =
+    `${topProduct.name} — ${topProduct.total_quantity}`;
+}
 
-todayData.products
-  .filter(p => p.category === "contest" && p.total_quantity > 0)
-  .forEach(p => {
-    report += `${p.name}: ${p.total_quantity}\n`;
-  });
-
-cachedReport = report;
+    container.appendChild(row);
 
 });
 
+
+  todayData.products.forEach(product => {
+
+    const count = product.total_quantity || 0;
+
+    const el = document.getElementById("count-" + product.id);
+    if (el) el.textContent = count;
+
+    const minusBtn = document.querySelector(
+      'button[onclick="removeSale(' + product.id + ')"]'
+    );
+
+    if (minusBtn) {
+      minusBtn.disabled = count === 0;
+      minusBtn.style.opacity = count === 0 ? "0.4" : "1";
+    }
+
+  });
+
+
+  document.getElementById("todayIncome").textContent = todayData.total_income;
+  document.getElementById("monthIncome").textContent = monthData.total_income;
+
+  document.getElementById("goalInput").value = monthData.goal || "";
+
+  const percent = monthData.percent || 0;
+
+  document.getElementById("goalPercent").textContent = percent;
+  document.getElementById("progressBar").style.width = percent + "%";
+
+
+  let report = "Выполнено:\n";
+
+  todayData.products
+    .filter(p => p.category === "done" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  report += "\nПродажи:\n";
+
+  todayData.products
+    .filter(p => p.category === "sales" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  report += "\nКонкурс:\n";
+
+  todayData.products
+    .filter(p => p.category === "contest" && p.total_quantity > 0)
+    .forEach(p => {
+      report += `${p.name}: ${p.total_quantity}\n`;
+    });
+
+  cachedReport = report;
+  
+
+};
+
+{
   document.getElementById("todayIncome").textContent = todayData.total_income;
   document.getElementById("monthIncome").textContent = monthData.total_income;
 
@@ -542,6 +638,16 @@ function showToast(message) {
     ">
   </textarea>
 </div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('Service Worker зарегистрирован', reg))
+      .catch(err => console.log('SW ошибка', err));
+  });
+}
+</script>
 
 </body>
 </html>
