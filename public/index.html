@@ -271,6 +271,7 @@ body {
 </div>
 <div class="bottom-actions">
   <button onclick="copyReport()">Скопировать отчёт</button>
+  <button onclick="resetTodaySales()">Сбросить день</button>
   <button class="logout" onclick="logout()">Выйти</button>
 </div>
 
@@ -281,26 +282,72 @@ function getToken() {
   return localStorage.getItem("token");
 }
 
-function getSalesKey() {
+function getStorageKey(prefix) {
   const token = getToken();
-  return token ? `sales_${token}` : "sales_guest";
+  return token ? `${prefix}_${token}` : `${prefix}_guest`;
+}
+
+function getTodaySalesKey() {
+  return getStorageKey("todaySales");
+}
+
+function getMonthSalesKey() {
+  return getStorageKey("monthSales");
 }
 
 function getGoalKey() {
-  const token = getToken();
-  return token ? `goal_${token}` : "goal_guest";
+  return getStorageKey("goal");
 }
 
-function readLocalSales() {
+function getLastDateKey() {
+  return getStorageKey("lastDate");
+}
+
+function getLastMonthKey() {
+  return getStorageKey("lastMonth");
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getCurrentMonthString() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+function readJSON(key, fallback = {}) {
   try {
-    return JSON.parse(localStorage.getItem(getSalesKey()) || "{}");
+    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
   } catch {
-    return {};
+    return fallback;
   }
 }
 
-function writeLocalSales(data) {
-  localStorage.setItem(getSalesKey(), JSON.stringify(data));
+function writeJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function readTodaySales() {
+  return readJSON(getTodaySalesKey(), {});
+}
+
+function writeTodaySales(data) {
+  writeJSON(getTodaySalesKey(), data);
+}
+
+function readMonthSales() {
+  return readJSON(getMonthSalesKey(), {});
+}
+
+function writeMonthSales(data) {
+  writeJSON(getMonthSalesKey(), data);
 }
 
 function readLocalGoal() {
@@ -309,6 +356,32 @@ function readLocalGoal() {
 
 function writeLocalGoal(goal) {
   localStorage.setItem(getGoalKey(), String(goal));
+}
+
+function normalizePeriodStorage() {
+  const today = getTodayDateString();
+  const currentMonth = getCurrentMonthString();
+
+  const lastDate = localStorage.getItem(getLastDateKey());
+  const lastMonth = localStorage.getItem(getLastMonthKey());
+
+  if (lastDate !== today) {
+    writeTodaySales({});
+    localStorage.setItem(getLastDateKey(), today);
+  }
+
+  if (lastMonth !== currentMonth) {
+    writeMonthSales({});
+    localStorage.setItem(getLastMonthKey(), currentMonth);
+  }
+
+  if (!lastDate) {
+    localStorage.setItem(getLastDateKey(), today);
+  }
+
+  if (!lastMonth) {
+    localStorage.setItem(getLastMonthKey(), currentMonth);
+  }
 }
 
 function showApp() {
@@ -323,6 +396,7 @@ function logout() {
 
 if (localStorage.getItem("token")) {
   showApp();
+  normalizePeriodStorage();
   loadProducts();
   loadStats();
 }
@@ -334,7 +408,7 @@ async function register() {
   try {
     const res = await fetch("/register", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
     });
 
@@ -358,7 +432,7 @@ async function login() {
   try {
     const res = await fetch("/login", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
     });
 
@@ -369,9 +443,12 @@ async function login() {
     }
 
     localStorage.setItem("token", data.token);
+
+    normalizePeriodStorage();
     showApp();
     await loadProducts();
     await loadStats();
+
     showToast("Вход выполнен");
   } catch (err) {
     console.error(err);
@@ -451,50 +528,80 @@ async function setGoal() {
 }
 
 async function addSale(productId) {
-  const sales = readLocalSales();
-  sales[productId] = (sales[productId] || 0) + 1;
-  writeLocalSales(sales);
+  normalizePeriodStorage();
+
+  const todaySales = readTodaySales();
+  const monthSales = readMonthSales();
+
+  todaySales[productId] = (todaySales[productId] || 0) + 1;
+  monthSales[productId] = (monthSales[productId] || 0) + 1;
+
+  writeTodaySales(todaySales);
+  writeMonthSales(monthSales);
+
   await loadStats();
 }
 
 async function removeSale(productId) {
-  const sales = readLocalSales();
-  const current = sales[productId] || 0;
+  normalizePeriodStorage();
 
-  if (current <= 0) {
+  const todaySales = readTodaySales();
+  const monthSales = readMonthSales();
+
+  const todayCurrent = todaySales[productId] || 0;
+  const monthCurrent = monthSales[productId] || 0;
+
+  if (todayCurrent <= 0) {
     showToast("Нечего удалять");
     return;
   }
 
-  sales[productId] = current - 1;
+  todaySales[productId] = todayCurrent - 1;
+  monthSales[productId] = Math.max(monthCurrent - 1, 0);
 
-  if (sales[productId] <= 0) {
-    delete sales[productId];
+  if (todaySales[productId] <= 0) {
+    delete todaySales[productId];
   }
 
-  writeLocalSales(sales);
+  if (monthSales[productId] <= 0) {
+    delete monthSales[productId];
+  }
+
+  writeTodaySales(todaySales);
+  writeMonthSales(monthSales);
+
+  await loadStats();
+}
+
+async function resetTodaySales() {
+  writeTodaySales({});
+  localStorage.setItem(getLastDateKey(), getTodayDateString());
+  showToast("Дневные продажи сброшены");
   await loadStats();
 }
 
 async function loadStats() {
+  normalizePeriodStorage();
+
   const token = getToken();
 
   try {
-    const monthRes = await fetch("/stats?period=month", {
-      headers: { "Authorization":"Bearer " + token }
+    const res = await fetch("/products", {
+      headers: { "Authorization": "Bearer " + token }
     });
 
-    const monthData = await monthRes.json();
+    const products = await res.json();
 
-    if (!monthRes.ok) {
-      throw new Error(monthData.error || "Не удалось загрузить статистику");
+    if (!res.ok) {
+      throw new Error(products.error || "Не удалось загрузить данные");
     }
 
-    const localSales = readLocalSales();
+    const todaySales = readTodaySales();
+    const monthSales = readMonthSales();
     const localGoal = readLocalGoal();
 
-    const mergedProducts = monthData.products.map(product => {
-      const qty = localSales[product.id] || 0;
+    const todayProducts = products.map(product => {
+      const qty = todaySales[product.id] || 0;
       return {
         ...product,
         total_quantity: qty,
@@ -502,38 +609,52 @@ async function loadStats() {
       };
     });
 
-    const totalQuantity = mergedProducts.reduce((sum, p) => sum + p.total_quantity, 0);
-    const totalIncome = mergedProducts.reduce((sum, p) => sum + p.total_income, 0);
+    const monthProducts = products.map(product => {
+      const qty = monthSales[product.id] || 0;
+      return {
+        ...product,
+        total_quantity: qty,
+        total_income: qty * product.price
+      };
+    });
 
-    const productsWithPercent = mergedProducts.map(p => ({
+    const todayIncome = todayProducts.reduce((sum, p) => sum + p.total_income, 0);
+    const monthIncome = monthProducts.reduce((sum, p) => sum + p.total_income, 0);
+    const monthQuantity = monthProducts.reduce((sum, p) => sum + p.total_quantity, 0);
+
+    const monthProductsWithPercent = monthProducts.map(p => ({
       ...p,
-      percent: totalQuantity > 0
-        ? Math.round((p.total_quantity / totalQuantity) * 100)
+      percent: monthQuantity > 0
+        ? Math.round((p.total_quantity / monthQuantity) * 100)
         : 0
     }));
 
-    document.getElementById("monthQuantity").textContent = totalQuantity;
-    document.getElementById("todayIncome").textContent = totalIncome;
-    document.getElementById("monthIncome").textContent = totalIncome;
+    document.getElementById("todayIncome").textContent = todayIncome;
+    document.getElementById("monthIncome").textContent = monthIncome;
+    document.getElementById("monthQuantity").textContent = monthQuantity;
     document.getElementById("goalInput").value = localGoal || "";
 
-    const percent = localGoal > 0 ? Math.floor((totalIncome / localGoal) * 100) : 0;
+    const percent = localGoal > 0 ? Math.floor((monthIncome / localGoal) * 100) : 0;
     const safePercent = Math.min(percent, 100);
 
     document.getElementById("goalPercent").textContent = percent;
     document.getElementById("progressBar").style.width = safePercent + "%";
 
-    const monthProducts = document.getElementById("monthProducts");
-    monthProducts.innerHTML = "";
+    const monthProductsContainer = document.getElementById("monthProducts");
+    monthProductsContainer.innerHTML = "";
 
-    const activeProducts = productsWithPercent.filter(p => p.total_quantity > 0);
+    const activeMonthProducts = monthProductsWithPercent.filter(p => p.total_quantity > 0);
 
-    const topProduct = [...activeProducts].sort((a, b) => b.total_quantity - a.total_quantity)[0];
+    const topProduct = [...activeMonthProducts].sort(
+      (a, b) => b.total_quantity - a.total_quantity
+    )[0];
+
     document.getElementById("topProduct").textContent =
       topProduct ? `${topProduct.name} — ${topProduct.total_quantity}` : "Нет данных";
 
-    activeProducts.forEach(product => {
+    activeMonthProducts.forEach(product => {
       const row = document.createElement("div");
+
       row.style.display = "flex";
       row.style.justifyContent = "space-between";
       row.style.padding = "6px 0";
@@ -562,13 +683,16 @@ async function loadStats() {
         </div>
       `;
 
-      monthProducts.appendChild(row);
+      monthProductsContainer.appendChild(row);
     });
 
-    productsWithPercent.forEach(product => {
+    todayProducts.forEach(product => {
       const count = product.total_quantity || 0;
       const el = document.getElementById("count-" + product.id);
-      if (el) el.textContent = count;
+
+      if (el) {
+        el.textContent = count;
+      }
 
       const minusBtn = document.querySelector(
         'button[onclick="removeSale(' + product.id + ')"]'
@@ -582,7 +706,7 @@ async function loadStats() {
 
     let report = "Выполнено:\n";
 
-    productsWithPercent
+    todayProducts
       .filter(p => p.category === "done" && p.total_quantity > 0)
       .forEach(p => {
         report += `${p.name}: ${p.total_quantity}\n`;
@@ -590,7 +714,7 @@ async function loadStats() {
 
     report += "\nПродажи:\n";
 
-    productsWithPercent
+    todayProducts
       .filter(p => p.category === "sales" && p.total_quantity > 0)
       .forEach(p => {
         report += `${p.name}: ${p.total_quantity}\n`;
@@ -598,7 +722,7 @@ async function loadStats() {
 
     report += "\nКонкурс:\n";
 
-    productsWithPercent
+    todayProducts
       .filter(p => p.category === "contest" && p.total_quantity > 0)
       .forEach(p => {
         report += `${p.name}: ${p.total_quantity}\n`;
@@ -618,8 +742,12 @@ function copyReport() {
   }
 
   navigator.clipboard.writeText(cachedReport)
-    .then(() => showToast("Отчёт скопирован"))
-    .catch(() => fallbackCopy(cachedReport));
+    .then(() => {
+      showToast("Отчёт скопирован");
+    })
+    .catch(() => {
+      fallbackCopy(cachedReport);
+    });
 }
 
 function fallbackCopy(text) {
@@ -632,7 +760,9 @@ function fallbackCopy(text) {
   document.body.appendChild(textarea);
   textarea.focus();
   textarea.select();
+
   document.execCommand("copy");
+
   document.body.removeChild(textarea);
 
   showToast("Отчёт скопирован");
