@@ -1,16 +1,16 @@
-const cors = require('cors');
-
-app.use(express.json());
-app.use(express.static('public'));
-
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const cors = require('cors');
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET = "supersecretkey";
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
