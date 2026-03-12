@@ -402,8 +402,13 @@ if (localStorage.getItem("token")) {
 }
 
 async function register() {
-  const email = regEmail.value.trim();
-  const password = regPass.value.trim();
+  const email = document.getElementById("regEmail").value.trim();
+  const password = document.getElementById("regPass").value.trim();
+
+  if (!email || !password) {
+    showToast("Введите email и пароль");
+    return;
+  }
 
   try {
     const res = await fetch("/register", {
@@ -415,19 +420,29 @@ async function register() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(data.error || "Ошибка регистрации");
+      const message = data.error || "Ошибка регистрации";
+      showToast(message);
+      alert(message);
+      return;
     }
 
     showToast("Пользователь создан");
+    alert("Пользователь создан");
   } catch (err) {
-    console.error(err);
-    showToast(err.message || "Ошибка регистрации");
+    console.error("register error:", err);
+    showToast("Ошибка регистрации");
+    alert("Ошибка регистрации");
   }
 }
 
 async function login() {
-  const email = logEmail.value.trim();
-  const password = logPass.value.trim();
+  const email = document.getElementById("logEmail").value.trim();
+  const password = document.getElementById("logPass").value.trim();
+
+  if (!email || !password) {
+    showToast("Введите email и пароль");
+    return;
+  }
 
   try {
     const res = await fetch("/login", {
@@ -439,7 +454,10 @@ async function login() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data.token) {
-      throw new Error(data.error || "Ошибка входа");
+      const message = data.error || "Ошибка входа";
+      showToast(message);
+      alert(message);
+      return;
     }
 
     localStorage.setItem("token", data.token);
@@ -451,8 +469,9 @@ async function login() {
 
     showToast("Вход выполнен");
   } catch (err) {
-    console.error(err);
-    showToast(err.message || "Ошибка входа");
+    console.error("login error:", err);
+    showToast("Ошибка входа");
+    alert("Ошибка входа");
   }
 }
 
@@ -729,6 +748,7 @@ async function loadStats() {
       });
 
     cachedReport = report;
+    console.log("cachedReport:", cachedReport);
   } catch (err) {
     console.error(err);
     showToast(err.message || "Ошибка загрузки статистики");
@@ -751,32 +771,55 @@ function copyReport() {
 }
 
 function fallbackCopy(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.opacity = "0";
+    textarea.style.zIndex = "-1";
 
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
 
-  document.execCommand("copy");
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textarea);
 
-  document.body.removeChild(textarea);
-
-  showToast("Отчёт скопирован");
+    if (successful) {
+      showToast("Отчёт скопирован");
+      alert("Отчёт скопирован");
+    } else {
+      showToast("Не удалось скопировать отчёт");
+      alert("Не удалось скопировать отчёт");
+    }
+  } catch (err) {
+    console.error("copy error:", err);
+    showToast("Ошибка копирования");
+    alert("Ошибка копирования");
+  }
 }
 
 function showToast(message) {
   const toast = document.getElementById("toast");
+
+  if (!toast) {
+    alert(message);
+    return;
+  }
+
   toast.textContent = message;
   toast.style.opacity = "1";
+  toast.style.display = "block";
 
   setTimeout(() => {
     toast.style.opacity = "0";
   }, 2000);
 }
+
 </script>
 
 <div id="toast" class="toast">Цель сохранена</div>
