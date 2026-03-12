@@ -1,3 +1,8 @@
+const cors = require('cors');
+
+app.use(express.json());
+app.use(express.static('public'));
+
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -6,10 +11,6 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET = "supersecretkey";
-
-app.use(express.json());
-app.use(express.static('public'));
-
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -49,12 +50,20 @@ app.post('/login', (req, res) => {
     "SELECT * FROM users WHERE email = ?",
     [email],
     async (err, user) => {
+      if (err) {
+        console.error("Ошибка login:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
 
-      if (!user) return res.status(400).json({ error: "Пользователь не найден" });
+      if (!user) {
+        return res.status(400).json({ error: "Пользователь не найден" });
+      }
 
       const valid = await bcrypt.compare(password, user.password);
 
-      if (!valid) return res.status(403).json({ error: "Неверный пароль" });
+      if (!valid) {
+        return res.status(403).json({ error: "Неверный пароль" });
+      }
 
       const token = jwt.sign({ id: user.id }, SECRET);
 

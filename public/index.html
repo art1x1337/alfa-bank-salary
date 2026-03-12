@@ -275,40 +275,40 @@ body {
 </div>
 
 <script>
-
 let cachedReport = "";
 
-function copyReport() {
-  if (!cachedReport) {
-    showToast("Отчёт ещё загружается");
-    return;
-  }
-
-  navigator.clipboard.writeText(cachedReport)
-    .then(() => {
-      showToast("Отчёт скопирован");
-    })
-    .catch(() => {
-      fallbackCopy(cachedReport);
-    });
+function getToken() {
+  return localStorage.getItem("token");
 }
 
-function fallbackCopy(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
+function getSalesKey() {
+  const token = getToken();
+  return token ? `sales_${token}` : "sales_guest";
+}
 
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
+function getGoalKey() {
+  const token = getToken();
+  return token ? `goal_${token}` : "goal_guest";
+}
 
-  document.execCommand("copy");
+function readLocalSales() {
+  try {
+    return JSON.parse(localStorage.getItem(getSalesKey()) || "{}");
+  } catch {
+    return {};
+  }
+}
 
-  document.body.removeChild(textarea);
+function writeLocalSales(data) {
+  localStorage.setItem(getSalesKey(), JSON.stringify(data));
+}
 
-  showToast("Отчёт скопирован");
+function readLocalGoal() {
+  return Number(localStorage.getItem(getGoalKey()) || 0);
+}
+
+function writeLocalGoal(goal) {
+  localStorage.setItem(getGoalKey(), String(goal));
 }
 
 function showApp() {
@@ -328,285 +328,314 @@ if (localStorage.getItem("token")) {
 }
 
 async function register() {
-  const email = regEmail.value;
-  const password = regPass.value;
+  const email = regEmail.value.trim();
+  const password = regPass.value.trim();
 
-  await fetch("/register", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({email, password})
-  });
+  try {
+    const res = await fetch("/register", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email, password })
+    });
 
-  alert("Пользователь создан");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || "Ошибка регистрации");
+    }
+
+    showToast("Пользователь создан");
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Ошибка регистрации");
+  }
 }
 
 async function login() {
-  const email = logEmail.value;
-  const password = logPass.value;
+  const email = logEmail.value.trim();
+  const password = logPass.value.trim();
 
-  const res = await fetch("/login", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({email, password})
-  });
+  try {
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email, password })
+    });
 
-  const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
-  if (data.token) {
+    if (!res.ok || !data.token) {
+      throw new Error(data.error || "Ошибка входа");
+    }
+
     localStorage.setItem("token", data.token);
     showApp();
-    loadProducts();
-    loadStats();
-  } else {
-    alert("Ошибка входа");
+    await loadProducts();
+    await loadStats();
+    showToast("Вход выполнен");
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Ошибка входа");
   }
 }
 
 async function loadProducts() {
-  const token = localStorage.getItem("token");
+  const token = getToken();
 
-  const res = await fetch("/products", {
-    headers: { "Authorization": "Bearer " + token }
-  });
+  try {
+    const res = await fetch("/products", {
+      headers: { "Authorization": "Bearer " + token }
+    });
 
-  const products = await res.json();
+    const products = await res.json();
 
-  const container = document.getElementById("products");
-  container.innerHTML = "";
+    if (!res.ok) {
+      throw new Error(products.error || "Не удалось загрузить продукты");
+    }
 
-  ["done", "sales", "contest"].forEach(cat => {
+    const container = document.getElementById("products");
+    container.innerHTML = "";
 
-    const section = document.createElement("h2");
-    section.textContent =
-      cat === "done" ? "Выполнено" :
-      cat === "sales" ? "Продажи" :
-      "Конкурс";
+    ["done", "sales", "contest"].forEach(cat => {
+      const section = document.createElement("h2");
+      section.textContent =
+        cat === "done" ? "Выполнено" :
+        cat === "sales" ? "Продажи" :
+        "Конкурс";
 
-    container.appendChild(section);
+      container.appendChild(section);
 
-    products
-      .filter(p => p.category === cat)
-      .forEach(product => {
+      products
+        .filter(p => p.category === cat)
+        .forEach(product => {
+          const card = document.createElement("div");
+          card.className = "card";
 
-        const card = document.createElement("div");
-        card.className = "card";
+          card.innerHTML = `
+            <div class="product">
+              <div>
+                <div class="product-name">${product.name}</div>
+                <div class="price">${product.price} ₽</div>
+              </div>
 
-        card.innerHTML = `
-          <div class="product">
-            <div>
-              <div class="product-name">${product.name}</div>
-              <div class="price">${product.price} ₽</div>
+              <div class="controls">
+                <button class="minus" onclick="removeSale(${product.id})">-</button>
+                <span id="count-${product.id}" class="count">0</span>
+                <button class="plus" onclick="addSale(${product.id})">+</button>
+              </div>
             </div>
+          `;
 
-            <div class="controls">
-              <button class="minus" onclick="removeSale(${product.id})">-</button>
-              <span id="count-${product.id}" class="count">0</span>
-              <button class="plus" onclick="addSale(${product.id})">+</button>
-            </div>
-          </div>
-        `;
+          container.appendChild(card);
+        });
+    });
 
-        container.appendChild(card);
-      });
-
-  });
-
-  loadStats();
+    await loadStats();
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Ошибка загрузки продуктов");
+  }
 }
 
 async function setGoal() {
-  const token = localStorage.getItem("token");
-
-  const goalValue = document.getElementById("goalInput").value;
-
-  const goal = Number(goalValue);
+  const goal = Number(document.getElementById("goalInput").value);
 
   if (!goal || goal <= 0) {
     showToast("Введите корректную цель");
     return;
   }
 
-  await fetch("/set-goal", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token
-    },
-    body: JSON.stringify({ goal })
-  });
-
+  writeLocalGoal(goal);
   showToast("Цель сохранена");
-  loadStats();
+  await loadStats();
 }
 
 async function addSale(productId) {
-  const el = document.getElementById("count-" + productId);
-  if (el) el.textContent = Number(el.textContent || 0) + 1;
-
-  const token = localStorage.getItem("token");
-  await fetch("/sales", {
-    method: "POST",
-    headers: {
-      "Content-Type":"application/json",
-      "Authorization":"Bearer " + token
-    },
-    body: JSON.stringify({product_id: productId})
-  });
-
-  loadStats(); 
+  const sales = readLocalSales();
+  sales[productId] = (sales[productId] || 0) + 1;
+  writeLocalSales(sales);
+  await loadStats();
 }
 
 async function removeSale(productId) {
-  const token = localStorage.getItem("token");
+  const sales = readLocalSales();
+  const current = sales[productId] || 0;
 
-  await fetch("/sales/" + productId, {
-    method: "DELETE",
-    headers: {
-      "Authorization":"Bearer " + token
-    }
-  });
+  if (current <= 0) {
+    showToast("Нечего удалять");
+    return;
+  }
 
-  loadStats();
+  sales[productId] = current - 1;
+
+  if (sales[productId] <= 0) {
+    delete sales[productId];
+  }
+
+  writeLocalSales(sales);
+  await loadStats();
 }
 
 async function loadStats() {
+  const token = getToken();
 
-  const token = localStorage.getItem("token");
+  try {
+    const monthRes = await fetch("/stats?period=month", {
+      headers: { "Authorization":"Bearer " + token }
+    });
 
-  const todayRes = await fetch("/stats?period=today", {
-    headers: { "Authorization":"Bearer " + token }
-  });
+    const monthData = await monthRes.json();
 
-  const todayData = await todayRes.json();
-
-  const monthRes = await fetch("/stats?period=month", {
-    headers: { "Authorization":"Bearer " + token }
-  });
-
-  const monthData = await monthRes.json();
-
-  document.getElementById("monthQuantity").textContent =
-    monthData.total_quantity;
-
-  const container = document.getElementById("monthProducts");
-container.innerHTML = "";
-
-monthData.products
-  .filter(p => p.total_quantity > 0)
-  .forEach(product => {
-
-    const row = document.createElement("div");
-
-    row.style.display = "flex";
-    row.style.justifyContent = "space-between";
-    row.style.padding = "6px 0";
-    row.style.borderBottom = "1px solid #eee";
-
-    row.innerHTML = `
-  <div style="width:100%;">
-    <div style="display:flex;justify-content:space-between;">
-      <span>${product.name}</span>
-      <span>${product.total_quantity} (${product.percent}%)</span>
-    </div>
-
-    <div style="
-      height:6px;
-      background:#eee;
-      border-radius:4px;
-      margin-top:4px;
-    ">
-      <div style="
-        width:${product.percent}%;
-        height:6px;
-        background:#2563eb;
-        border-radius:4px;
-      "></div>
-    </div>
-  </div>
-`;
-
-const topProduct = monthData.products
-  .sort((a,b)=>b.total_quantity-a.total_quantity)[0];
-
-if (topProduct) {
-  document.getElementById("topProduct").textContent =
-    `${topProduct.name} — ${topProduct.total_quantity}`;
-}
-
-    container.appendChild(row);
-
-});
-
-
-  todayData.products.forEach(product => {
-
-    const count = product.total_quantity || 0;
-
-    const el = document.getElementById("count-" + product.id);
-    if (el) el.textContent = count;
-
-    const minusBtn = document.querySelector(
-      'button[onclick="removeSale(' + product.id + ')"]'
-    );
-
-    if (minusBtn) {
-      minusBtn.disabled = count === 0;
-      minusBtn.style.opacity = count === 0 ? "0.4" : "1";
+    if (!monthRes.ok) {
+      throw new Error(monthData.error || "Не удалось загрузить статистику");
     }
 
-  });
+    const localSales = readLocalSales();
+    const localGoal = readLocalGoal();
 
-
-  document.getElementById("todayIncome").textContent = todayData.total_income;
-  document.getElementById("monthIncome").textContent = monthData.total_income;
-
-  document.getElementById("goalInput").value = monthData.goal || "";
-
-  const percent = monthData.percent || 0;
-
-  document.getElementById("goalPercent").textContent = percent;
-  document.getElementById("progressBar").style.width = percent + "%";
-
-
-  let report = "Выполнено:\n";
-
-  todayData.products
-    .filter(p => p.category === "done" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
+    const mergedProducts = monthData.products.map(product => {
+      const qty = localSales[product.id] || 0;
+      return {
+        ...product,
+        total_quantity: qty,
+        total_income: qty * product.price
+      };
     });
 
-  report += "\nПродажи:\n";
+    const totalQuantity = mergedProducts.reduce((sum, p) => sum + p.total_quantity, 0);
+    const totalIncome = mergedProducts.reduce((sum, p) => sum + p.total_income, 0);
 
-  todayData.products
-    .filter(p => p.category === "sales" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
+    const productsWithPercent = mergedProducts.map(p => ({
+      ...p,
+      percent: totalQuantity > 0
+        ? Math.round((p.total_quantity / totalQuantity) * 100)
+        : 0
+    }));
+
+    document.getElementById("monthQuantity").textContent = totalQuantity;
+    document.getElementById("todayIncome").textContent = totalIncome;
+    document.getElementById("monthIncome").textContent = totalIncome;
+    document.getElementById("goalInput").value = localGoal || "";
+
+    const percent = localGoal > 0 ? Math.floor((totalIncome / localGoal) * 100) : 0;
+    const safePercent = Math.min(percent, 100);
+
+    document.getElementById("goalPercent").textContent = percent;
+    document.getElementById("progressBar").style.width = safePercent + "%";
+
+    const monthProducts = document.getElementById("monthProducts");
+    monthProducts.innerHTML = "";
+
+    const activeProducts = productsWithPercent.filter(p => p.total_quantity > 0);
+
+    const topProduct = [...activeProducts].sort((a, b) => b.total_quantity - a.total_quantity)[0];
+    document.getElementById("topProduct").textContent =
+      topProduct ? `${topProduct.name} — ${topProduct.total_quantity}` : "Нет данных";
+
+    activeProducts.forEach(product => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.padding = "6px 0";
+      row.style.borderBottom = "1px solid #eee";
+
+      row.innerHTML = `
+        <div style="width:100%;">
+          <div style="display:flex;justify-content:space-between;">
+            <span>${product.name}</span>
+            <span>${product.total_quantity} (${product.percent}%)</span>
+          </div>
+
+          <div style="
+            height:6px;
+            background:#eee;
+            border-radius:4px;
+            margin-top:4px;
+          ">
+            <div style="
+              width:${product.percent}%;
+              height:6px;
+              background:#2563eb;
+              border-radius:4px;
+            "></div>
+          </div>
+        </div>
+      `;
+
+      monthProducts.appendChild(row);
     });
 
-  report += "\nКонкурс:\n";
+    productsWithPercent.forEach(product => {
+      const count = product.total_quantity || 0;
+      const el = document.getElementById("count-" + product.id);
+      if (el) el.textContent = count;
 
-  todayData.products
-    .filter(p => p.category === "contest" && p.total_quantity > 0)
-    .forEach(p => {
-      report += `${p.name}: ${p.total_quantity}\n`;
+      const minusBtn = document.querySelector(
+        'button[onclick="removeSale(' + product.id + ')"]'
+      );
+
+      if (minusBtn) {
+        minusBtn.disabled = count === 0;
+        minusBtn.style.opacity = count === 0 ? "0.4" : "1";
+      }
     });
 
-  cachedReport = report;
-  
+    let report = "Выполнено:\n";
 
-};
+    productsWithPercent
+      .filter(p => p.category === "done" && p.total_quantity > 0)
+      .forEach(p => {
+        report += `${p.name}: ${p.total_quantity}\n`;
+      });
 
-{
-  document.getElementById("todayIncome").textContent = todayData.total_income;
-  document.getElementById("monthIncome").textContent = monthData.total_income;
+    report += "\nПродажи:\n";
 
-  document.getElementById("goalInput").value = monthData.goal || "";
+    productsWithPercent
+      .filter(p => p.category === "sales" && p.total_quantity > 0)
+      .forEach(p => {
+        report += `${p.name}: ${p.total_quantity}\n`;
+      });
 
-  const percent = monthData.percent || 0;
+    report += "\nКонкурс:\n";
 
-  document.getElementById("goalPercent").textContent = percent;
-  document.getElementById("progressBar").style.width = percent + "%";
+    productsWithPercent
+      .filter(p => p.category === "contest" && p.total_quantity > 0)
+      .forEach(p => {
+        report += `${p.name}: ${p.total_quantity}\n`;
+      });
+
+    cachedReport = report;
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Ошибка загрузки статистики");
+  }
+}
+
+function copyReport() {
+  if (!cachedReport) {
+    showToast("Отчёт ещё загружается");
+    return;
+  }
+
+  navigator.clipboard.writeText(cachedReport)
+    .then(() => showToast("Отчёт скопирован"))
+    .catch(() => fallbackCopy(cachedReport));
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+
+  showToast("Отчёт скопирован");
 }
 
 function showToast(message) {
@@ -618,7 +647,6 @@ function showToast(message) {
     toast.style.opacity = "0";
   }, 2000);
 }
-
 </script>
 
 <div id="toast" class="toast">Цель сохранена</div>
@@ -641,10 +669,14 @@ function showToast(message) {
 
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => console.log('Service Worker зарегистрирован', reg))
-      .catch(err => console.log('SW ошибка', err));
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  });
+
+  caches.keys().then(keys => {
+    keys.forEach(key => caches.delete(key));
   });
 }
 </script>
