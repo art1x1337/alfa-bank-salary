@@ -160,6 +160,17 @@ body {
   font-weight: 600;
 }
 
+.count-input {
+  width: 56px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  background: #fff;
+}
+
 .toast {
   position: fixed;
   bottom: 20px;
@@ -257,6 +268,15 @@ body {
 <div style="margin-top:20px;">
   <h3>🏆 Топ продукт месяца</h3>
   <div id="topProduct"></div>
+  <div style="margin-top:20px;">
+  <h3>💳 KPI по ДК</h3>
+  <div id="debitKpi"></div>
+</div>
+
+<div style="margin-top:20px;">
+  <h3>🏦 KPI по КК</h3>
+  <div id="creditKpi"></div>
+</div>
 </div>
   🎯 Цель:
   <input id="goalInput" type="number" placeholder="Введите цель">
@@ -277,6 +297,62 @@ body {
 
 <script>
 let cachedReport = "";
+
+const KPI_CONFIG = {
+  debitBaseNames: ["ДК/ЗПК/РЕ", "СелфиДК"],
+  creditBaseNames: ["КК", "СелфиКК"],
+
+  debitMetrics: [
+    { label: "Комбо", names: ["Комбо"] },
+    { label: "БС / АИ", names: ["АИ", "БС"] },
+    { label: "ЦП", names: ["ЦП", "ЦП Продажа"] },
+    { label: "Смарт", names: ["Смарт"] },
+    { label: "Кэш", names: ["Кэшбек"] }
+  ],
+
+  creditMetrics: [
+    { label: "PPI", names: ["PPI"] },
+    { label: "Кросс ДК", names: ["КроссДК", "Кросс ДК", "Кросс ДК"] }
+  ]
+};
+
+function sumByNames(products, names) {
+  return products
+    .filter(product => names.includes(product.name))
+    .reduce((sum, product) => sum + (product.total_quantity || 0), 0);
+}
+
+function renderKpiBlock(containerId, baseLabel, baseValue, metrics) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  let html = `
+    <div style="padding:12px;background:#fff;border-radius:12px;border:1px solid #e2e8f0;">
+      <div style="font-weight:600;margin-bottom:10px;">
+        ${baseLabel}: ${baseValue}
+      </div>
+  `;
+
+  metrics.forEach(metric => {
+    const percent = baseValue > 0 ? Math.round((metric.value / baseValue) * 100) : 0;
+    const safePercent = Math.min(percent, 100);
+
+    html += `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:14px;">
+          <span>${metric.label}</span>
+          <span>${metric.value} (${percent}%)</span>
+        </div>
+        <div style="height:6px;background:#eee;border-radius:4px;margin-top:4px;">
+          <div style="width:${safePercent}%;height:6px;background:#2563eb;border-radius:4px;"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
 
 function getToken() {
   return localStorage.getItem("token");
@@ -508,19 +584,28 @@ async function loadProducts() {
           card.className = "card";
 
           card.innerHTML = `
-            <div class="product">
-              <div>
-                <div class="product-name">${product.name}</div>
-                <div class="price">${product.price} ₽</div>
-              </div>
+          <div class="product">
+        <div>
+          <div class="product-name">${product.name}</div>
+          <div class="price">${product.price} ₽</div>
+        </div>
 
-              <div class="controls">
-                <button class="minus" onclick="removeSale(${product.id})">-</button>
-                <span id="count-${product.id}" class="count">0</span>
-                <button class="plus" onclick="addSale(${product.id})">+</button>
-              </div>
-            </div>
-          `;
+        <div class="controls">
+        <button class="minus" onclick="removeSale(${product.id})">-</button>
+        <input
+        id="count-${product.id}"
+        class="count-input"
+        type="number"
+        min="0"
+        step="1"
+        value="0"
+        onblur="setSaleCount(${product.id}, this.value)"
+        onkeydown="handleCountInputKey(event, ${product.id}, this)"
+        />
+        <button class="plus" onclick="addSale(${product.id})">+</button>
+        </div>
+        </div>
+      `;
 
           container.appendChild(card);
         });
@@ -592,6 +677,50 @@ async function removeSale(productId) {
   await loadStats();
 }
 
+function sanitizeCountValue(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Math.floor(num);
+}
+
+function handleCountInputKey(event, productId, input) {
+  if (event.key === "Enter") {
+    input.blur();
+  }
+}
+
+async function setSaleCount(productId, rawValue) {
+  normalizePeriodStorage();
+
+  const nextValue = sanitizeCountValue(rawValue);
+
+  const todaySales = readTodaySales();
+  const monthSales = readMonthSales();
+
+  const currentToday = todaySales[productId] || 0;
+  const diff = nextValue - currentToday;
+
+  todaySales[productId] = nextValue;
+
+  if (todaySales[productId] <= 0) {
+    delete todaySales[productId];
+  }
+
+  const currentMonth = monthSales[productId] || 0;
+  const nextMonth = Math.max(currentMonth + diff, 0);
+
+  if (nextMonth > 0) {
+    monthSales[productId] = nextMonth;
+  } else {
+    delete monthSales[productId];
+  }
+
+  writeTodaySales(todaySales);
+  writeMonthSales(monthSales);
+
+  await loadStats();
+}
+
 async function resetTodaySales() {
   writeTodaySales({});
   localStorage.setItem(getLastDateKey(), getTodayDateString());
@@ -646,6 +775,19 @@ async function loadStats() {
       percent: monthQuantity > 0
         ? Math.round((p.total_quantity / monthQuantity) * 100)
         : 0
+    }));
+
+    const debitBase = sumByNames(monthProducts, KPI_CONFIG.debitBaseNames);
+    const creditBase = sumByNames(monthProducts, KPI_CONFIG.creditBaseNames);
+
+    const debitMetrics = KPI_CONFIG.debitMetrics.map(metric => ({
+    label: metric.label,
+    value: sumByNames(monthProducts, metric.names)
+    }));
+
+    const creditMetrics = KPI_CONFIG.creditMetrics.map(metric => ({
+    label: metric.label,
+    value: sumByNames(monthProducts, metric.names)
     }));
 
     document.getElementById("todayIncome").textContent = todayIncome;
@@ -705,13 +847,16 @@ async function loadStats() {
       monthProductsContainer.appendChild(row);
     });
 
+    renderKpiBlock("debitKpi", "Выдано ДК", debitBase, debitMetrics);
+    renderKpiBlock("creditKpi", "Выдано КК", creditBase, creditMetrics);
+
     todayProducts.forEach(product => {
       const count = product.total_quantity || 0;
       const el = document.getElementById("count-" + product.id);
 
       if (el) {
-        el.textContent = count;
-      }
+      el.value = count;
+    }
 
       const minusBtn = document.querySelector(
         'button[onclick="removeSale(' + product.id + ')"]'
